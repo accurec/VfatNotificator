@@ -60,7 +60,7 @@ class VfatPoolNotificator
         
         position_state = PositionState::OUT_OF_RANGE
 
-        send_email
+        send_email(current_price_tick, lower_price_tick, higher_price_tick)
       else
         puts "The current price is in range: #{lower_price_tick} < #{current_price_tick} < #{higher_price_tick}. Skipping sending email and going to sleep for #{VfatPoolNotificator::SLEEP_DURATION} seconds."
 
