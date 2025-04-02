@@ -1,7 +1,6 @@
 require 'dotenv'
 require 'sendgrid-ruby'
 require 'eth'
-require 'byebug'
 
 Dotenv.load('../.env')
 
