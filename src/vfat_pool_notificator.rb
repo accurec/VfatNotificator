@@ -1,6 +1,8 @@
 require 'dotenv'
 require 'sendgrid-ruby'
 require 'eth'
+require 'active_support'
+require 'active_support/core_ext/time'
 
 Dotenv.load('../.env')
 
@@ -23,6 +25,7 @@ class VfatPoolNotificator
   SENDGRID_API_KEY = ENV['SENDGRID_API_KEY']
 
   def self.run
+    Time.zone = 'Pacific Time (US & Canada)'
     position_state = PositionState::NONE
 
     nft_position_manager_abi = File.read('/workspaces/ruby-4/vfat_pool_notificator/abi/nft_position_manager_abi.json')
@@ -80,7 +83,7 @@ class VfatPoolNotificator
     from = Email.new(email: VfatPoolNotificator::SENDGRID_EMAIL_FROM)
     to = Email.new(email: VfatPoolNotificator::SENDGRID_EMAIL_TO)
     subject = 'Position out of range'
-    content = Content.new(type: 'text/plain', value: "The CL - LINK/ETH position #{current} is out of range [#{min}, #{max}]. #{Time.now.getlocal('-07:00').to_s}. Don't forget to rebalance, update notificator config with new NFT ID, and restart the notificator.")
+    content = Content.new(type: 'text/plain', value: "The CL - LINK/ETH position #{current} is out of range [#{min}, #{max}]. #{Time.zone.now.to_s}. Don't forget to rebalance, update notificator config with new NFT ID, and restart the notificator.")
     mail = Mail.new(from, subject, to, content)
 
     sg = SendGrid::API.new(api_key: VfatPoolNotificator::SENDGRID_API_KEY)
