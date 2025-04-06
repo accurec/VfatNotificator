@@ -24,8 +24,12 @@ class VfatPoolNotificator
   SENDGRID_EMAIL_TO = ENV['SENDGRID_EMAIL_TO']
   SENDGRID_API_KEY = ENV['SENDGRID_API_KEY']
 
-  def self.run
-    Time.zone = 'Pacific Time (US & Canada)'
+  def initialize
+    @logger = Logger.new("/workspaces/ruby-4/vfat_pool_notificator/out/vfat_notificator.log")
+    @logger.level = Logger::INFO
+  end
+
+  def run
     position_state = PositionState::NONE
 
     nft_position_manager_abi = File.read('/workspaces/ruby-4/vfat_pool_notificator/abi/nft_position_manager_abi.json')
@@ -57,15 +61,15 @@ class VfatPoolNotificator
       )[5..6]
 
       if position_state == PositionState::OUT_OF_RANGE && (current_price_tick < lower_price_tick || current_price_tick > higher_price_tick)
-        puts "The current price #{current_price_tick} is out of range [#{lower_price_tick}, #{higher_price_tick}]. However, we've already sent email before. Skipping sending email and going to sleep for #{VfatPoolNotificator::SLEEP_DURATION} seconds."
+        @logger.info "The current price #{current_price_tick} is out of range [#{lower_price_tick}, #{higher_price_tick}]. However, we've already sent email before. Skipping sending email and going to sleep for #{VfatPoolNotificator::SLEEP_DURATION} seconds."
       elsif position_state != PositionState::OUT_OF_RANGE && (current_price_tick < lower_price_tick || current_price_tick > higher_price_tick)
-        puts "The current price #{current_price_tick} is out of range [#{lower_price_tick}, #{higher_price_tick}]. Sending email and going to sleep for #{VfatPoolNotificator::SLEEP_DURATION} seconds."
+        @logger.info "The current price #{current_price_tick} is out of range [#{lower_price_tick}, #{higher_price_tick}]. Sending email and going to sleep for #{VfatPoolNotificator::SLEEP_DURATION} seconds."
         
         position_state = PositionState::OUT_OF_RANGE
 
         send_email(current_price_tick, lower_price_tick, higher_price_tick)
       else
-        puts "The current price is in range: #{lower_price_tick} < #{current_price_tick} < #{higher_price_tick}. Skipping sending email and going to sleep for #{VfatPoolNotificator::SLEEP_DURATION} seconds."
+        @logger.info "The current price is in range: #{lower_price_tick} < #{current_price_tick} < #{higher_price_tick}. Skipping sending email and going to sleep for #{VfatPoolNotificator::SLEEP_DURATION} seconds."
 
         position_state = PositionState::IN_RANGE
       end
@@ -74,25 +78,23 @@ class VfatPoolNotificator
     end
 
   rescue => e
-    puts "Stopping. There was error in VfatPoolNotificator execution: #{e.message}"
+    @logger.error "Stopping. There was error in VfatPoolNotificator execution: #{e.message}"
   end
 
-  private
-
-  def self.send_email(current, min, max)
+  def send_email(current, min, max)
     from = Email.new(email: VfatPoolNotificator::SENDGRID_EMAIL_FROM)
     to = Email.new(email: VfatPoolNotificator::SENDGRID_EMAIL_TO)
     subject = 'Position out of range'
-    content = Content.new(type: 'text/plain', value: "The CL - LINK/ETH position #{current} is out of range [#{min}, #{max}]. #{Time.zone.now.to_s}. Don't forget to rebalance, update notificator config with new NFT ID, and restart the notificator.")
+    content = Content.new(type: 'text/plain', value: "The CL - LINK/ETH position #{current} is out of range [#{min}, #{max}]. #{Time.now.in_time_zone("Pacific Time (US & Canada)")}. Don't forget to rebalance, update notificator config with new NFT ID, and restart the notificator.")
     mail = Mail.new(from, subject, to, content)
 
     sg = SendGrid::API.new(api_key: VfatPoolNotificator::SENDGRID_API_KEY)
     response = sg.client.mail._('send').post(request_body: mail.to_json)
 
-    puts "Email sent! Code: #{response.status_code}."
+    @logger.info "Email sent! Code: #{response.status_code}."
   rescue => e
-    puts "Error sending email: #{e.message}"
+    @logger.error "Error sending email: #{e.message}"
   end
 end
 
-VfatPoolNotificator.run
+# VfatPoolNotificator.run

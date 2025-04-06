@@ -3,3 +3,6 @@
 
 # Byebug files
 .byebug_history
+
+# log files
+*.log

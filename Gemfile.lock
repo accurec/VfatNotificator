@@ -68,6 +68,7 @@ DEPENDENCIES
   activesupport
   dotenv
   eth
+  minitest
   sendgrid-ruby
 
 BUNDLED WITH
