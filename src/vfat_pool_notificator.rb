@@ -67,7 +67,7 @@ class VfatPoolNotificator
         
         position_state = PositionState::OUT_OF_RANGE
 
-        send_email(current_price_tick, lower_price_tick, higher_price_tick, false)
+        send_email_with_sendgrid(current_price_tick, lower_price_tick, higher_price_tick, false)
       else
         @logger.info "The current price is in range: #{lower_price_tick} < #{current_price_tick} < #{higher_price_tick}. Skipping sending email and going to sleep for #{VfatPoolNotificator::SLEEP_DURATION} seconds."
 
@@ -81,11 +81,11 @@ class VfatPoolNotificator
     @logger.error "Stopping. There was error in VfatPoolNotificator execution: #{e.message}"
   end
 
-  def send_email(current, min, max, test)
+  def send_email_with_sendgrid(current, min, max, test)
     from = Email.new(email: VfatPoolNotificator::SENDGRID_EMAIL_FROM)
     to = Email.new(email: VfatPoolNotificator::SENDGRID_EMAIL_TO)
     subject = test ? '[TEST] Position out of range' : 'Position out of range'
-    content = Content.new(type: 'text/plain', value: "The CL - LINK/ETH position #{current} is out of range [#{min}, #{max}]. #{Time.now.in_time_zone("Pacific Time (US & Canada)")}. Don't forget to rebalance, update notificator config with new NFT ID, and restart the notificator.")
+    content = Content.new(type: 'text/plain', value: "The CL - SUI/ETH position #{current} is out of range [#{min}, #{max}]. #{Time.now.in_time_zone("Pacific Time (US & Canada)")}. Don't forget to rebalance, update notificator config with new NFT ID, and restart the notificator.")
     mail = Mail.new(from, subject, to, content)
 
     sg = SendGrid::API.new(api_key: VfatPoolNotificator::SENDGRID_API_KEY)
