@@ -3,6 +3,8 @@ require 'sendgrid-ruby'
 require 'eth'
 require 'active_support'
 require 'active_support/core_ext/time'
+require 'httparty'
+require 'byebug'
 
 Dotenv.load('../.env')
 
@@ -23,6 +25,11 @@ class VfatPoolNotificator
   SENDGRID_EMAIL_FROM = ENV['SENDGRID_EMAIL_FROM']
   SENDGRID_EMAIL_TO = ENV['SENDGRID_EMAIL_TO']
   SENDGRID_API_KEY = ENV['SENDGRID_API_KEY']
+  MAILEROO_API_KEY = ENV['MAILEROO_API_KEY']
+  MAILEROO_EMAIL_FROM = ENV['MAILEROO_EMAIL_FROM']
+  MAILEROO_EMAIL_TO = ENV['MAILEROO_EMAIL_TO']
+  MAILEROO_API_KEY_HEADER = ENV['MAILEROO_API_KEY_HEADER']
+  MAILEROO_REQUEST_URL = ENV['MAILEROO_REQUEST_URL']
 
   def initialize
     @logger = Logger.new("/workspaces/ruby-4/vfat_pool_notificator/out/vfat_notificator.log")
@@ -67,7 +74,7 @@ class VfatPoolNotificator
         
         position_state = PositionState::OUT_OF_RANGE
 
-        send_email_with_sendgrid(current_price_tick, lower_price_tick, higher_price_tick, false)
+        send_email_using_sendgrid(current_price_tick, lower_price_tick, higher_price_tick, false)
       else
         @logger.info "The current price is in range: #{lower_price_tick} < #{current_price_tick} < #{higher_price_tick}. Skipping sending email and going to sleep for #{VfatPoolNotificator::SLEEP_DURATION} seconds."
 
@@ -81,7 +88,7 @@ class VfatPoolNotificator
     @logger.error "Stopping. There was error in VfatPoolNotificator execution: #{e.message}"
   end
 
-  def send_email_with_sendgrid(current, min, max, test)
+  def send_email_using_sendgrid(current, min, max, test)
     from = Email.new(email: VfatPoolNotificator::SENDGRID_EMAIL_FROM)
     to = Email.new(email: VfatPoolNotificator::SENDGRID_EMAIL_TO)
     subject = test ? '[TEST] Position out of range' : 'Position out of range'
@@ -91,8 +98,32 @@ class VfatPoolNotificator
     sg = SendGrid::API.new(api_key: VfatPoolNotificator::SENDGRID_API_KEY)
     response = sg.client.mail._('send').post(request_body: mail.to_json)
 
-    @logger.info test ? "[TEST] Email sent! Code: #{response.status_code}." : "Email sent! Code: #{response.status_code}."
+    @logger.info test ? "[TEST] Email sent using Sendgrid! Code: #{response.status_code}." : "Email sent using Sendgrid! Code: #{response.status_code}."
   rescue => e
-    @logger.error test ? "[TEST] Error sending email: #{e.message}" : "Error sending email: #{e.message}"
+    @logger.error test ? "[TEST] Error sending email using Sendgrid: #{e.message}" : "Error sending email using Sendgrid: #{e.message}"
+  end
+
+  def send_email_using_maileroo(current, min, max, test)
+    body = { 
+      :from => VfatPoolNotificator::MAILEROO_EMAIL_FROM, 
+      :to => VfatPoolNotificator::MAILEROO_EMAIL_TO, 
+      :subject => test ? '[TEST] Position out of range' : 'Position out of range', 
+      :plain => "The CL - SUI/ETH position #{current} is out of range [#{min}, #{max}]. #{Time.now.in_time_zone("Pacific Time (US & Canada)")}. Don't forget to rebalance, update notificator config with new NFT ID, and restart the notificator."
+    }.to_json
+
+    headers = {
+        'Content-Type' => 'multipart/form-data',
+        VfatPoolNotificator::MAILEROO_API_KEY_HEADER => VfatPoolNotificator::MAILEROO_API_KEY
+    }
+
+    response = HTTParty.post(VfatPoolNotificator::MAILEROO_REQUEST_URL, :body => body, :headers => headers)
+
+    if response.parsed_response['success']
+      @logger.info test ? '[TEST] Email sent using Maileroo!' : 'Email sent using Maileroo!'
+    else
+      @logger.error test ? "[TEST] Error sending email using Maileroo: #{response.parsed_response['message']}" : "Error sending email using Maileroo: #{response.parsed_response['message']}"
+    end
+  rescue => e
+    @logger.error test ? "[TEST] Error sending email using Maileroo: #{e.message}" : "Error sending email using Maileroo: #{e.message}"
   end
 end
