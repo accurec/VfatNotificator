@@ -66,20 +66,21 @@ class VfatPoolNotificator
          )[5..6]
    
          if position_states[idx] == PositionState::OUT_OF_RANGE && (current_price_tick < lower_price_tick || current_price_tick > higher_price_tick)
-           @logger.info "#{clpool}: the current price #{current_price_tick} is out of range [#{lower_price_tick}, #{higher_price_tick}]. However, we've already sent email before. Skipping sending email and going to sleep for #{SLEEP_DURATION} seconds."
+           @logger.info "#{clpool}: the current price #{current_price_tick} is out of range [#{lower_price_tick}, #{higher_price_tick}]. However, we've already sent email before. Skipping sending email."
          elsif position_states[idx] != PositionState::OUT_OF_RANGE && (current_price_tick < lower_price_tick || current_price_tick > higher_price_tick)
-           @logger.info "#{clpool}: the current price #{current_price_tick} is out of range [#{lower_price_tick}, #{higher_price_tick}]. Sending email and going to sleep for #{SLEEP_DURATION} seconds."
+           @logger.info "#{clpool}: the current price #{current_price_tick} is out of range [#{lower_price_tick}, #{higher_price_tick}]. Sending email."
            
            position_states[idx] = PositionState::OUT_OF_RANGE
    
            send_email_using_mailersend(clpool, current_price_tick, lower_price_tick, higher_price_tick, false)
          else
-           @logger.info "#{clpool}: the current price is in range: #{lower_price_tick} < #{current_price_tick} < #{higher_price_tick}. Skipping sending email and going to sleep for #{SLEEP_DURATION} seconds."
+           @logger.info "#{clpool}: the current price is in range: #{lower_price_tick} < #{current_price_tick} < #{higher_price_tick}. Skipping sending email."
    
            position_states[idx] = PositionState::IN_RANGE
          end
       end
 
+      @logger.info "Going to sleep for #{SLEEP_DURATION} seconds."
       sleep SLEEP_DURATION
     end
   rescue => e
