@@ -2,8 +2,6 @@ require 'dotenv'
 require 'eth'
 require 'active_support'
 require 'active_support/core_ext/time'
-require 'httparty'
-require 'byebug'
 require "mailersend-ruby"
 
 Dotenv.load('../.env')
