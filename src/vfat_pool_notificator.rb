@@ -36,11 +36,6 @@ class VfatPoolNotificator
     position_states = []
     CLPOOLS.each { |cp| position_states << PositionState::NONE }
 
-    nft_position_manager_abi = File.read('/workspaces/ruby-4/vfat_pool_notificator/abi/nft_position_manager_abi.json')
-    pool_abi = File.read('/workspaces/ruby-4/vfat_pool_notificator/abi/pool_abi.json')
-
-    chain_client = Eth::Client.create(CHAIN_HTTPS_URI) 
-
     while true
       CLPOOLS.each_with_index do |clpool, idx|
         nft_position_manager_contract = Eth::Contract.from_abi(
@@ -72,7 +67,7 @@ class VfatPoolNotificator
            
            position_states[idx] = PositionState::OUT_OF_RANGE
    
-           send_email_using_mailersend(clpool, current_price_tick, lower_price_tick, higher_price_tick, false)
+           send_position_email_using_mailersend(clpool, current_price_tick, lower_price_tick, higher_price_tick)
          else
            @logger.info "#{clpool}: the current price is in range: #{lower_price_tick} < #{current_price_tick} < #{higher_price_tick}. Skipping sending email."
    
@@ -84,11 +79,12 @@ class VfatPoolNotificator
       sleep SLEEP_DURATION
     end
   rescue => e
-    @logger.error "Stopping. There was error in VfatPoolNotificator execution: #{e.message}"
+    message = e.message
+    @logger.error "Stopping. There was error in VfatPoolNotificator execution: #{message}"
+    send_error_email_using_mailersend(message)
   end
 
-  def send_email_using_mailersend(pool, current, min, max, test)
-    ms_client = Mailersend::Client.new(MAILERSEND_API_KEY)
+  def send_position_email_using_mailersend(pool, current, min, max, test = false)
     ms_email = Mailersend::Email.new(ms_client)
 
     ms_email.add_recipients("email" => MAILERSEND_EMAIL_TO)
@@ -101,5 +97,36 @@ class VfatPoolNotificator
     @logger.info test ? "[TEST] Email sent using Mailersend! Code: #{response.code}." : "Email sent using Mailersend! Code: #{response.code}."
   rescue => e
     @logger.error test ? "[TEST] Error sending email using Mailersend: #{e.message}" : "Error sending email using Mailersend: #{e.message}"
+  end
+
+  def send_error_email_using_mailersend(message, test = false)
+    ms_email = Mailersend::Email.new(ms_client)
+
+    ms_email.add_recipients("email" => MAILERSEND_EMAIL_TO)
+    ms_email.add_from("email" => MAILERSEND_EMAIL_FROM)
+    ms_email.add_subject(test ? '[TEST] Error in VfatPoolNotificator' : 'Error in VfatPoolNotificator')
+    ms_email.add_text("#{Time.now.in_time_zone("Pacific Time (US & Canada)")}: #{message}")
+
+    response = ms_email.send
+
+    @logger.info test ? "[TEST] Email sent using Mailersend! Code: #{response.code}." : "Email sent using Mailersend! Code: #{response.code}."
+  rescue => e
+    @logger.error test ? "[TEST] Error sending email using Mailersend: #{e.message}" : "Error sending email using Mailersend: #{e.message}"
+  end
+
+  def ms_client
+    @ms_client ||= Mailersend::Client.new(MAILERSEND_API_KEY)
+  end
+
+  def chain_client
+    @chain_client ||= Eth::Client.create(CHAIN_HTTPS_URI) 
+  end
+
+  def nft_position_manager_abi
+    @nft_position_manager_abi ||= File.read('/workspaces/ruby-4/vfat_pool_notificator/abi/nft_position_manager_abi.json')
+  end
+
+  def pool_abi
+    @pool_abi ||= File.read('/workspaces/ruby-4/vfat_pool_notificator/abi/pool_abi.json')
   end
 end
